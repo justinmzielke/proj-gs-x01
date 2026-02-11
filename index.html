@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sculpture Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f5f5f5; overflow: hidden; }
+        canvas { width: 100vw; height: 100vh; display: block; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        
+        /* Loading overlay */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.8s ease-out;
+        }
+        #loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* Accumulating dots container */
+        .dots-container {
+            width: 60px;
+            height: 60px;
+            position: relative;
+        }
+        
+        .dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #333;
+            border-radius: 50%;
+            top: 26px;
+            left: 26px;
+            will-change: transform, opacity;
+        }
+        
+        /* 8 dots moving to center */
+        .dot:nth-child(1) { animation: moveFromTop 2.4s infinite ease-in-out 0s; }
+        .dot:nth-child(2) { animation: moveFromTopRight 2.4s infinite ease-in-out 0.3s; }
+        .dot:nth-child(3) { animation: moveFromRight 2.4s infinite ease-in-out 0.6s; }
+        .dot:nth-child(4) { animation: moveFromBottomRight 2.4s infinite ease-in-out 0.9s; }
+        .dot:nth-child(5) { animation: moveFromBottom 2.4s infinite ease-in-out 1.2s; }
+        .dot:nth-child(6) { animation: moveFromBottomLeft 2.4s infinite ease-in-out 1.5s; }
+        .dot:nth-child(7) { animation: moveFromLeft 2.4s infinite ease-in-out 1.8s; }
+        .dot:nth-child(8) { animation: moveFromTopLeft 2.4s infinite ease-in-out 2.1s; }
+        
+        .center-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #333;
+            border-radius: 50%;
+            top: 26px;
+            left: 26px;
+            opacity: 0;
+            will-change: transform, opacity;
+            animation: centerPulse 2.4s infinite ease-in-out 2.2s;
+        }
+        
+        @keyframes moveFromTop {
+            0% { opacity: 0; transform: translateY(-26px) scale(0.5); }
+            15% { opacity: 1; transform: translateY(-26px) scale(1); }
+            50% { opacity: 1; transform: translateY(0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translateY(0) scale(0); }
+        }
+        @keyframes moveFromTopRight {
+            0% { opacity: 0; transform: translate(18px, -18px) scale(0.5); }
+            15% { opacity: 1; transform: translate(18px, -18px) scale(1); }
+            50% { opacity: 1; transform: translate(0, 0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translate(0, 0) scale(0); }
+        }
+        @keyframes moveFromRight {
+            0% { opacity: 0; transform: translateX(26px) scale(0.5); }
+            15% { opacity: 1; transform: translateX(26px) scale(1); }
+            50% { opacity: 1; transform: translateX(0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translateX(0) scale(0); }
+        }
+        @keyframes moveFromBottomRight {
+            0% { opacity: 0; transform: translate(18px, 18px) scale(0.5); }
+            15% { opacity: 1; transform: translate(18px, 18px) scale(1); }
+            50% { opacity: 1; transform: translate(0, 0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translate(0, 0) scale(0); }
+        }
+        @keyframes moveFromBottom {
+            0% { opacity: 0; transform: translateY(26px) scale(0.5); }
+            15% { opacity: 1; transform: translateY(26px) scale(1); }
+            50% { opacity: 1; transform: translateY(0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translateY(0) scale(0); }
+        }
+        @keyframes moveFromBottomLeft {
+            0% { opacity: 0; transform: translate(-18px, 18px) scale(0.5); }
+            15% { opacity: 1; transform: translate(-18px, 18px) scale(1); }
+            50% { opacity: 1; transform: translate(0, 0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translate(0, 0) scale(0); }
+        }
+        @keyframes moveFromLeft {
+            0% { opacity: 0; transform: translateX(-26px) scale(0.5); }
+            15% { opacity: 1; transform: translateX(-26px) scale(1); }
+            50% { opacity: 1; transform: translateX(0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translateX(0) scale(0); }
+        }
+        @keyframes moveFromTopLeft {
+            0% { opacity: 0; transform: translate(-18px, -18px) scale(0.5); }
+            15% { opacity: 1; transform: translate(-18px, -18px) scale(1); }
+            50% { opacity: 1; transform: translate(0, 0) scale(0.8); }
+            60%, 100% { opacity: 0; transform: translate(0, 0) scale(0); }
+        }
+        @keyframes centerPulse {
+            0%, 70% { opacity: 0; transform: scale(0); }
+            85% { opacity: 1; transform: scale(1.5); }
+            100% { opacity: 0; transform: scale(0); }
+        }
+        
+        .loading-text {
+            margin-top: 24px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: #999;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div id="loader">
+        <div class="dots-container">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="center-dot"></div>
+        </div>
+        <div class="loading-text">Loading</div>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <script>
+    (function() {
+        'use strict';
+        
+        // Config
+        const MODEL_PATH = './models/sculpture.splat';
+        const MODEL_CENTER = { x: -0.1, y: -0.087, z: 0.266 };
+        const INITIAL_THETA = Math.PI * 0.69;
+        const INITIAL_PHI = 0.2;
+        const INITIAL_DISTANCE = 4;
+        const MIN_DISTANCE = 1.5;
+        const MAX_DISTANCE = 10;
+        const REVEAL_DURATION = 2000;
+        const MIN_LOADER_TIME = 2500;
+        const Y_FILTER_THRESHOLD = -1.12;
+        const ROT_X = 0.15;
+        const ROT_Z = 0.15;
+        
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const gl = canvas.getContext('webgl2');
+        if (!gl) {
+            alert('WebGL 2 not supported');
+            return;
+        }
+        
+        // Shaders
+        const vertexShader = `#version 300 es
+        precision highp float;
+        
+        uniform mat4 projection;
+        uniform mat4 view;
+        uniform vec2 viewport;
+        uniform float focal;
+        
+        in vec2 quadPos;
+        in vec3 splatPos;
+        in vec4 splatColor;
+        in vec3 cov3d_a;
+        in vec3 cov3d_b;
+        
+        out vec4 vColor;
+        out vec2 vUV;
+        
+        void main() {
+            vec4 camPos = view * vec4(splatPos, 1.0);
+            vec4 clipPos = projection * camPos;
+            
+            if (clipPos.w < 0.1 || abs(clipPos.x) > 1.3 * clipPos.w || abs(clipPos.y) > 1.3 * clipPos.w) {
+                gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+                return;
+            }
+            
+            mat3 cov3d = mat3(
+                cov3d_a.x, cov3d_a.y, cov3d_a.z,
+                cov3d_a.y, cov3d_b.x, cov3d_b.y,
+                cov3d_a.z, cov3d_b.y, cov3d_b.z
+            );
+            
+            float z2 = camPos.z * camPos.z;
+            mat3 J = mat3(
+                focal / camPos.z, 0.0, -focal * camPos.x / z2,
+                0.0, focal / camPos.z, -focal * camPos.y / z2,
+                0.0, 0.0, 0.0
+            );
+            
+            mat3 W = mat3(view);
+            mat3 T = J * W;
+            mat3 cov2d = T * cov3d * transpose(T);
+            
+            float a = cov2d[0][0] + 0.3;
+            float b = cov2d[0][1];
+            float c = cov2d[1][1] + 0.3;
+            
+            float det = a * c - b * b;
+            if (det < 0.0001) {
+                gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+                return;
+            }
+            
+            float trace = a + c;
+            float disc = sqrt(max(trace * trace - 4.0 * det, 0.0));
+            float lambda1 = 0.5 * (trace + disc);
+            float lambda2 = max(0.5 * (trace - disc), 0.0001);
+            
+            vec2 v1 = abs(b) > 0.0001 ? normalize(vec2(lambda1 - c, b)) : vec2(1.0, 0.0);
+            vec2 v2 = vec2(-v1.y, v1.x);
+            
+            float r1 = min(3.0 * sqrt(lambda1), 500.0);
+            float r2 = min(3.0 * sqrt(lambda2), 500.0);
+            
+            vec2 offset = (quadPos.x * r1 * v1 + quadPos.y * r2 * v2) / viewport;
+            vec2 ndc = clipPos.xy / clipPos.w;
+            gl_Position = vec4(ndc + offset * 2.0, 0.0, 1.0);
+            
+            vColor = splatColor;
+            vUV = quadPos;
+        }`;
+        
+        const fragmentShader = `#version 300 es
+        precision highp float;
+        in vec4 vColor;
+        in vec2 vUV;
+        out vec4 fragColor;
+        void main() {
+            float d2 = dot(vUV, vUV);
+            if (d2 > 1.0) discard;
+            float alpha = exp(-d2 * 4.0) * vColor.a;
+            fragColor = vec4(vColor.rgb * alpha, alpha);
+        }`;
+        
+        function compileShader(type, src) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src);
+            gl.compileShader(s);
+            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+                throw new Error(gl.getShaderInfoLog(s));
+            }
+            return s;
+        }
+        
+        const prog = gl.createProgram();
+        gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, vertexShader));
+        gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fragmentShader));
+        gl.linkProgram(prog);
+        gl.useProgram(prog);
+        
+        const u_projection = gl.getUniformLocation(prog, 'projection');
+        const u_view = gl.getUniformLocation(prog, 'view');
+        const u_viewport = gl.getUniformLocation(prog, 'viewport');
+        const u_focal = gl.getUniformLocation(prog, 'focal');
+        
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.DEPTH_TEST);
+        
+        const quadBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, 1,1, -1,1]), gl.STATIC_DRAW);
+        
+        // State
+        let count = 0;
+        let theta = INITIAL_THETA;
+        let phi = INITIAL_PHI;
+        let dist = INITIAL_DISTANCE;
+        
+        let positions, colors, cov3dA, cov3dB;
+        let sortedPos, sortedColor, sortedCovA, sortedCovB;
+        let posBuffer, colorBuffer, cov3dABuffer, cov3dBBuffer;
+        let depths, indices;
+        
+        const loadStartTime = Date.now();
+        let visibleCount = 0;
+        let revealStartTime = null;
+        let lastSortTheta = null;
+        let lastSortPhi = null;
+        let frameCount = 0;
+        
+        // Depth sorting
+        function sortByDepth(camX, camY, camZ, numToRender) {
+            for (let i = 0; i < count; i++) {
+                const dx = positions[i*3] - camX;
+                const dy = positions[i*3+1] - camY;
+                const dz = positions[i*3+2] - camZ;
+                depths[i] = dx*dx + dy*dy + dz*dz;
+                indices[i] = i;
+            }
+            
+            const actualCount = count;
+            const numBuckets = 256;
+            const buckets = new Array(numBuckets);
+            for (let i = 0; i < numBuckets; i++) buckets[i] = [];
+            
+            let minD = depths[0], maxD = depths[0];
+            for (let i = 1; i < actualCount; i++) {
+                if (depths[i] < minD) minD = depths[i];
+                if (depths[i] > maxD) maxD = depths[i];
+            }
+            
+            const range = maxD - minD || 1;
+            
+            for (let i = 0; i < actualCount; i++) {
+                const bucket = Math.min(numBuckets - 1, Math.floor((depths[i] - minD) / range * (numBuckets - 1)));
+                buckets[numBuckets - 1 - bucket].push(indices[i]);
+            }
+            
+            let idx = 0;
+            for (let b = 0; b < numBuckets; b++) {
+                for (let i = 0; i < buckets[b].length; i++) {
+                    const src = buckets[b][i];
+                    sortedPos[idx*3] = positions[src*3];
+                    sortedPos[idx*3+1] = positions[src*3+1];
+                    sortedPos[idx*3+2] = positions[src*3+2];
+                    sortedColor[idx*4] = colors[src*4];
+                    sortedColor[idx*4+1] = colors[src*4+1];
+                    sortedColor[idx*4+2] = colors[src*4+2];
+                    sortedColor[idx*4+3] = colors[src*4+3];
+                    sortedCovA[idx*3] = cov3dA[src*3];
+                    sortedCovA[idx*3+1] = cov3dA[src*3+1];
+                    sortedCovA[idx*3+2] = cov3dA[src*3+2];
+                    sortedCovB[idx*3] = cov3dB[src*3];
+                    sortedCovB[idx*3+1] = cov3dB[src*3+1];
+                    sortedCovB[idx*3+2] = cov3dB[src*3+2];
+                    idx++;
+                }
+            }
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, sortedPos);
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, sortedColor);
+            gl.bindBuffer(gl.ARRAY_BUFFER, cov3dABuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, sortedCovA);
+            gl.bindBuffer(gl.ARRAY_BUFFER, cov3dBBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, sortedCovB);
+        }
+        
+        // Load model
+        fetch(MODEL_PATH)
+            .then(r => r.arrayBuffer())
+            .then(buffer => {
+                const f32 = new Float32Array(buffer);
+                const u8 = new Uint8Array(buffer);
+                const rawCount = Math.floor(buffer.byteLength / 32);
+                
+                positions = new Float32Array(rawCount * 3);
+                colors = new Float32Array(rawCount * 4);
+                cov3dA = new Float32Array(rawCount * 3);
+                cov3dB = new Float32Array(rawCount * 3);
+                
+                sortedPos = new Float32Array(rawCount * 3);
+                sortedColor = new Float32Array(rawCount * 4);
+                sortedCovA = new Float32Array(rawCount * 3);
+                sortedCovB = new Float32Array(rawCount * 3);
+                
+                depths = new Float32Array(rawCount);
+                indices = new Uint32Array(rawCount);
+                
+                // Rotation matrix
+                const cosX = Math.cos(ROT_X), sinX = Math.sin(ROT_X);
+                const cosZ = Math.cos(ROT_Z), sinZ = Math.sin(ROT_Z);
+                const R = [
+                    cosZ, -sinZ * cosX, sinZ * sinX,
+                    sinZ, cosZ * cosX, -cosZ * sinX,
+                    0, sinX, cosX
+                ];
+                
+                let filteredCount = 0;
+                
+                for (let i = 0; i < rawCount; i++) {
+                    const py = f32[i*8+1];
+                    if (py < Y_FILTER_THRESHOLD) continue;
+                    
+                    const px = f32[i*8];
+                    const pz = f32[i*8+2];
+                    const sx = f32[i*8+3], sy = f32[i*8+4], sz = f32[i*8+5];
+                    
+                    positions[filteredCount*3] = R[0]*px + R[1]*py + R[2]*pz;
+                    positions[filteredCount*3+1] = R[3]*px + R[4]*py + R[5]*pz;
+                    positions[filteredCount*3+2] = R[6]*px + R[7]*py + R[8]*pz;
+                    
+                    colors[filteredCount*4] = u8[i*32+24]/255;
+                    colors[filteredCount*4+1] = u8[i*32+25]/255;
+                    colors[filteredCount*4+2] = u8[i*32+26]/255;
+                    colors[filteredCount*4+3] = u8[i*32+27]/255;
+                    
+                    const qw = (u8[i*32+28]-128)/128;
+                    const qx = (u8[i*32+29]-128)/128;
+                    const qy = (u8[i*32+30]-128)/128;
+                    const qz = (u8[i*32+31]-128)/128;
+                    
+                    const qlen = Math.sqrt(qw*qw+qx*qx+qy*qy+qz*qz) || 1;
+                    const w=qw/qlen, x=qx/qlen, y=qy/qlen, z=qz/qlen;
+                    
+                    const Rq = [
+                        1-2*(y*y+z*z), 2*(x*y-w*z), 2*(x*z+w*y),
+                        2*(x*y+w*z), 1-2*(x*x+z*z), 2*(y*z-w*x),
+                        2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y)
+                    ];
+                    
+                    const RRq = [
+                        R[0]*Rq[0]+R[1]*Rq[3]+R[2]*Rq[6], R[0]*Rq[1]+R[1]*Rq[4]+R[2]*Rq[7], R[0]*Rq[2]+R[1]*Rq[5]+R[2]*Rq[8],
+                        R[3]*Rq[0]+R[4]*Rq[3]+R[5]*Rq[6], R[3]*Rq[1]+R[4]*Rq[4]+R[5]*Rq[7], R[3]*Rq[2]+R[4]*Rq[5]+R[5]*Rq[8],
+                        R[6]*Rq[0]+R[7]*Rq[3]+R[8]*Rq[6], R[6]*Rq[1]+R[7]*Rq[4]+R[8]*Rq[7], R[6]*Rq[2]+R[7]*Rq[5]+R[8]*Rq[8]
+                    ];
+                    
+                    const M = [RRq[0]*sx,RRq[1]*sy,RRq[2]*sz, RRq[3]*sx,RRq[4]*sy,RRq[5]*sz, RRq[6]*sx,RRq[7]*sy,RRq[8]*sz];
+                    
+                    cov3dA[filteredCount*3] = M[0]*M[0]+M[1]*M[1]+M[2]*M[2];
+                    cov3dA[filteredCount*3+1] = M[0]*M[3]+M[1]*M[4]+M[2]*M[5];
+                    cov3dA[filteredCount*3+2] = M[0]*M[6]+M[1]*M[7]+M[2]*M[8];
+                    cov3dB[filteredCount*3] = M[3]*M[3]+M[4]*M[4]+M[5]*M[5];
+                    cov3dB[filteredCount*3+1] = M[3]*M[6]+M[4]*M[7]+M[5]*M[8];
+                    cov3dB[filteredCount*3+2] = M[6]*M[6]+M[7]*M[7]+M[8]*M[8];
+                    
+                    filteredCount++;
+                }
+                
+                count = filteredCount;
+                
+                posBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, sortedPos, gl.DYNAMIC_DRAW);
+                
+                colorBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, sortedColor, gl.DYNAMIC_DRAW);
+                
+                cov3dABuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, cov3dABuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, sortedCovA, gl.DYNAMIC_DRAW);
+                
+                cov3dBBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, cov3dBBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, sortedCovB, gl.DYNAMIC_DRAW);
+                
+                const loadTime = Date.now() - loadStartTime;
+                const remainingTime = Math.max(0, MIN_LOADER_TIME - loadTime);
+                
+                setTimeout(() => {
+                    const loader = document.getElementById('loader');
+                    loader.classList.add('hidden');
+                    setTimeout(() => loader.style.display = 'none', 800);
+                    revealStartTime = Date.now();
+                    visibleCount = 0;
+                    render();
+                }, remainingTime);
+            });
+        
+        // Controls
+        let drag = false, lx = 0, ly = 0;
+        
+        canvas.onmousedown = e => { drag = true; lx = e.clientX; ly = e.clientY; };
+        window.onmouseup = () => drag = false;
+        window.onmousemove = e => {
+            if (drag) {
+                theta += (e.clientX - lx) * 0.01;
+                phi += (e.clientY - ly) * 0.01;
+                phi = Math.max(-1.5, Math.min(1.5, phi));
+                lx = e.clientX;
+                ly = e.clientY;
+            }
+        };
+        
+        canvas.onwheel = e => {
+            e.preventDefault();
+            dist *= 1 + e.deltaY * 0.001;
+            dist = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, dist));
+        };
+        
+        // Touch support
+        let touchDist = 0;
+        canvas.ontouchstart = e => {
+            if (e.touches.length === 1) {
+                drag = true;
+                lx = e.touches[0].clientX;
+                ly = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                touchDist = Math.sqrt(dx*dx + dy*dy);
+            }
+        };
+        canvas.ontouchmove = e => {
+            e.preventDefault();
+            if (e.touches.length === 1 && drag) {
+                theta += (e.touches[0].clientX - lx) * 0.01;
+                phi += (e.touches[0].clientY - ly) * 0.01;
+                phi = Math.max(-1.5, Math.min(1.5, phi));
+                lx = e.touches[0].clientX;
+                ly = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const newDist = Math.sqrt(dx*dx + dy*dy);
+                dist *= touchDist / newDist;
+                dist = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, dist));
+                touchDist = newDist;
+            }
+        };
+        canvas.ontouchend = () => drag = false;
+        
+        // Resize handler
+        window.onresize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        
+        // Render
+        function render() {
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.clearColor(0.96, 0.96, 0.96, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+            if (count === 0) { requestAnimationFrame(render); return; }
+            
+            if (revealStartTime) {
+                const elapsed = Date.now() - revealStartTime;
+                const progress = Math.min(1, elapsed / REVEAL_DURATION);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                visibleCount = Math.floor(eased * count);
+            }
+            
+            if (visibleCount === 0) { requestAnimationFrame(render); return; }
+            
+            const cx = MODEL_CENTER.x, cy = MODEL_CENTER.y, cz = MODEL_CENTER.z;
+            
+            const camX = cx + dist * Math.cos(phi) * Math.sin(theta);
+            const camY = cy - dist * Math.sin(phi);
+            const camZ = cz + dist * Math.cos(phi) * Math.cos(theta);
+            
+            frameCount++;
+            const needsSort = lastSortTheta === null || 
+                Math.abs(theta - lastSortTheta) > 0.03 || 
+                Math.abs(phi - lastSortPhi) > 0.03 ||
+                visibleCount < count;
+            
+            if (needsSort && frameCount % 2 === 0) {
+                sortByDepth(camX, camY, camZ, visibleCount);
+                lastSortTheta = theta;
+                lastSortPhi = phi;
+            }
+            
+            const fov = 45 * Math.PI / 180;
+            const aspect = canvas.width / canvas.height;
+            const near = 0.1, far = 100;
+            const f = 1 / Math.tan(fov / 2);
+            const focal = canvas.height / (2 * Math.tan(fov / 2));
+            
+            const projection = new Float32Array([
+                f/aspect, 0, 0, 0,
+                0, f, 0, 0,
+                0, 0, (far+near)/(near-far), -1,
+                0, 0, 2*far*near/(near-far), 0
+            ]);
+            
+            let fx = cx - camX, fy = cy - camY, fz = cz - camZ;
+            let fl = Math.sqrt(fx*fx + fy*fy + fz*fz);
+            fx /= fl; fy /= fl; fz /= fl;
+            
+            let upX = 0, upY = -1, upZ = 0;
+            let rx = fy*upZ - fz*upY;
+            let ry = fz*upX - fx*upZ;
+            let rz = fx*upY - fy*upX;
+            let rl = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
+            rx /= rl; ry /= rl; rz /= rl;
+            
+            let ux = ry*fz - rz*fy;
+            let uy = rz*fx - rx*fz;
+            let uz = rx*fy - ry*fx;
+            
+            const view = new Float32Array([
+                rx, ux, -fx, 0,
+                ry, uy, -fy, 0,
+                rz, uz, -fz, 0,
+                -(rx*camX+ry*camY+rz*camZ),
+                -(ux*camX+uy*camY+uz*camZ),
+                fx*camX+fy*camY+fz*camZ,
+                1
+            ]);
+            
+            gl.uniformMatrix4fv(u_projection, false, projection);
+            gl.uniformMatrix4fv(u_view, false, view);
+            gl.uniform2fv(u_viewport, [canvas.width, canvas.height]);
+            gl.uniform1f(u_focal, focal);
+            
+            const a_quadPos = gl.getAttribLocation(prog, 'quadPos');
+            const a_splatPos = gl.getAttribLocation(prog, 'splatPos');
+            const a_splatColor = gl.getAttribLocation(prog, 'splatColor');
+            const a_cov3dA = gl.getAttribLocation(prog, 'cov3d_a');
+            const a_cov3dB = gl.getAttribLocation(prog, 'cov3d_b');
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+            gl.enableVertexAttribArray(a_quadPos);
+            gl.vertexAttribPointer(a_quadPos, 2, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribDivisor(a_quadPos, 0);
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.enableVertexAttribArray(a_splatPos);
+            gl.vertexAttribPointer(a_splatPos, 3, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribDivisor(a_splatPos, 1);
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+            gl.enableVertexAttribArray(a_splatColor);
+            gl.vertexAttribPointer(a_splatColor, 4, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribDivisor(a_splatColor, 1);
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, cov3dABuffer);
+            gl.enableVertexAttribArray(a_cov3dA);
+            gl.vertexAttribPointer(a_cov3dA, 3, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribDivisor(a_cov3dA, 1);
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, cov3dBBuffer);
+            gl.enableVertexAttribArray(a_cov3dB);
+            gl.vertexAttribPointer(a_cov3dB, 3, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribDivisor(a_cov3dB, 1);
+            
+            gl.drawArraysInstanced(gl.TRIANGLE_FAN, 0, 4, visibleCount);
+            
+            requestAnimationFrame(render);
+        }
+    })();
+    </script>
+</body>
+</html>
