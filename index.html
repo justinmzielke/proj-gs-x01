@@ -216,23 +216,6 @@
         }
         #details-card::-webkit-scrollbar { display: none; }
         
-        #details-card .close-dot {
-            position: fixed;
-            bottom: 20px;
-            left: 28px;
-            background: none;
-            border: none;
-            font-size: 12px;
-            cursor: pointer;
-            color: #ddd;
-            padding: 8px 0;
-            line-height: 1;
-            transition: color 0.2s;
-        }
-        #details-card .close-dot:hover {
-            color: #999;
-        }
-        
         #details-card h1 {
             font-family: 'Inter Tight', sans-serif;
             font-size: 24px;
@@ -399,7 +382,6 @@
     
     <!-- Details Card -->
     <div id="details-card">
-        <button class="close-dot">●</button>
         <h1>Sophist, ca. 2025</h1>
         <div class="detail-row">
             <span class="detail-label">Medium</span>
@@ -716,8 +698,6 @@
         const detailsBtn = document.getElementById('details-btn');
         const detailsOverlay = document.getElementById('details-overlay');
         const detailsCard = document.getElementById('details-card');
-        const closeDot = detailsCard.querySelector('.close-dot');
-        
         function openDetails() {
             detailsOverlay.classList.add('visible');
             detailsCard.classList.add('visible');
@@ -729,7 +709,6 @@
         
         detailsBtn.onclick = openDetails;
         detailsOverlay.onclick = closeDetails;
-        closeDot.onclick = closeDetails;
         
         gl.enable(gl.BLEND);
         // Front-to-back blending (antimatter15 reference approach)
