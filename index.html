@@ -956,8 +956,14 @@
                     setTimeout(() => {
                         const btn = document.getElementById('details-btn');
                         btn.style.visibility = 'visible';
+                        // Force a reflow so the browser registers visibility before transitioning opacity
+                        btn.offsetHeight;
+                        btn.style.transition = 'opacity 1.5s ease-in';
                         btn.style.opacity = '0.6';
-                        btn.style.animation = 'subtle-flash 2s ease-in-out 3';
+                        // Start the subtle flash animation after the fade-in completes
+                        setTimeout(() => {
+                            btn.style.animation = 'subtle-flash 2s ease-in-out 3';
+                        }, 1500);
                     }, REVEAL_DURATION);
                 }, remainingTime);
             });
