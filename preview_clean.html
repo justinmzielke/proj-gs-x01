@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sculpture Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f5f5f5; overflow: hidden; }
+        #loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #999;
+            font-family: sans-serif;
+            font-size: 14px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="loader">Loading...</div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
+            "@mkkellogg/gaussian-splats-3d": "https://unpkg.com/@mkkellogg/gaussian-splats-3d@0.4.6/build/gaussian-splats-3d.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+
+        const viewer = new GaussianSplats3D.Viewer({
+            cameraUp: [0, 1, 0],
+            initialCameraPosition: [0, 0.5, 4],
+            initialCameraLookAt: [0, 0, 0],
+            selfDrivenMode: true,
+            useBuiltInControls: true,
+            dynamicScene: false,
+            sharedMemoryForWorkers: false
+        });
+
+        viewer.addSplatScene('./models/sophist_point_cloud.splat', {
+            showLoadingUI: false,
+            progressiveLoad: true
+        })
+        .then(() => {
+            document.getElementById('loader').style.display = 'none';
+        })
+        .catch(err => {
+            document.getElementById('loader').textContent = 'Error: ' + err.message;
+            console.error(err);
+        });
+    </script>
+</body>
+</html>
